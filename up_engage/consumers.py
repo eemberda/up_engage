@@ -232,17 +232,40 @@ class EventConsumer(AsyncWebsocketConsumer):
     def submit_poll_vote(self, poll_id, vote_data):
         try:
             poll = Poll.objects.get(id=poll_id, is_active=True)
-            session_key = self.scope.get('session', {}).get('session_key', 'anonymous')
+            
+            # Debug: print session info
+            print(f"Session scope: {self.scope.get('session')}")
+            print(f"Cookies: {self.scope.get('cookies')}")
+            
+            # Get session key, or create one based on client info for anonymous users
+            session_key = self.scope.get('session', {}).get('session_key')
+            if not session_key:
+                # Try to get session from cookies
+                cookies = self.scope.get('cookies', {})
+                session_key = cookies.get('sessionid') or cookies.get('django_session')
+                
+            if not session_key:
+                # For anonymous WebSocket users, use client IP + user agent as identifier
+                client_ip = self.scope.get('client', ['unknown'])[0]
+                user_agent = 'unknown'
+                for header_name, header_value in self.scope.get('headers', []):
+                    if header_name == b'user-agent':
+                        user_agent = header_value.decode('utf-8', errors='ignore')
+                        break
+                session_key = f"anon_{client_ip}_{hash(user_agent) % 10000}"
+            
+            print(f"Using session key: {session_key}")
             
             if poll.poll_type == 'multiple-choice':
                 from .models import Vote, PollOption
                 option_id = vote_data.get('option_id')
                 option = PollOption.objects.get(id=option_id, poll=poll)
                 
-                Vote.objects.get_or_create(
+                vote, created = Vote.objects.get_or_create(
                     poll_option=option,
                     author_session_id=session_key
                 )
+                print(f"Vote created: {created}, Total votes for option: {option.vote_count}")
                 
             elif poll.poll_type == 'rating':
                 from .models import RatingResponse
@@ -266,7 +289,8 @@ class EventConsumer(AsyncWebsocketConsumer):
                     )
             
             return True
-        except (Poll.DoesNotExist, Exception):
+        except (Poll.DoesNotExist, Exception) as e:
+            print(f"Error in submit_poll_vote: {e}")
             return False
     
     @database_sync_to_async
@@ -289,8 +313,13 @@ class EventConsumer(AsyncWebsocketConsumer):
                 return {'ratings': responses}
                 
             elif poll.poll_type == 'word-cloud':
+                # Get all word responses and count duplicates
+                from collections import Counter
                 words = list(poll.word_responses.values_list('text', flat=True))
-                return {'words': words}
+                word_counts = Counter(words)
+                # Convert to list of dictionaries with word and count
+                word_data = [{'word': word, 'count': count} for word, count in word_counts.items()]
+                return {'words': word_data}
                 
         except Poll.DoesNotExist:
             return {}
@@ -387,6 +416,16 @@ class EventConsumer(AsyncWebsocketConsumer):
                         {'id': opt.id, 'text': opt.text, 'vote_count': opt.vote_count}
                         for opt in active_poll_obj.options.all()
                     ]
+                elif active_poll_obj.poll_type == 'word-cloud':
+                    # Get all word responses and count duplicates
+                    from collections import Counter
+                    words = list(active_poll_obj.word_responses.values_list('text', flat=True))
+                    word_counts = Counter(words)
+                    word_data = [{'word': word, 'count': count} for word, count in word_counts.items()]
+                    active_poll['words'] = word_data
+                elif active_poll_obj.poll_type == 'rating':
+                    ratings = list(active_poll_obj.rating_responses.values_list('rating', flat=True))
+                    active_poll['ratings'] = ratings
             
             return {
                 'type': 'event_data',

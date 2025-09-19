@@ -54,7 +54,15 @@ class EventView(TemplateView):
         ).order_by('-upvote_count', '-created_at')
         
         # Get active poll
-        context['active_poll'] = Poll.objects.filter(event=event, is_active=True).first()
+        active_poll = Poll.objects.filter(event=event, is_active=True).first()
+        context['active_poll'] = active_poll
+        
+        # If there's an active word cloud poll, provide aggregated word data
+        if active_poll and active_poll.poll_type == 'word-cloud':
+            from collections import Counter
+            words = list(active_poll.word_responses.values_list('text', flat=True))
+            word_counts = Counter(words)
+            context['word_counts'] = [{'word': word, 'count': count} for word, count in word_counts.items()]
         
         # Get all polls for this event
         context['polls'] = Poll.objects.filter(event=event).order_by('-created_at')

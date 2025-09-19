@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import ListCreateAPIView
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, F
 from django.db import IntegrityError
@@ -220,7 +221,7 @@ class EventQuestionsView(ListCreateAPIView):
 
 class EventPollsView(ListCreateAPIView):
     """List and create polls for a specific event"""
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -237,7 +238,7 @@ class EventPollsView(ListCreateAPIView):
         
         # Check if user is the host
         if event.host != self.request.user:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied('You must be the event host to create polls.')
         
         serializer.save(event=event)
 

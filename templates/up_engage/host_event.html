@@ -521,10 +521,11 @@ document.getElementById('add-option').addEventListener('click', function() {
 document.getElementById('createPollForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    const formData = new FormData();
-    formData.append('question_text', document.getElementById('poll-question').value);
-    formData.append('poll_type', document.getElementById('poll-type').value);
-    formData.append('event', '{{ event.id }}');
+    const pollData = {
+        question_text: document.getElementById('poll-question').value,
+        poll_type: document.getElementById('poll-type').value,
+        event: '{{ event.id }}'
+    };
     
     // Get options for multiple choice
     if (document.getElementById('poll-type').value === 'multiple-choice') {
@@ -534,7 +535,7 @@ document.getElementById('createPollForm').addEventListener('submit', function(e)
                 options.push(input.value.trim());
             }
         });
-        formData.append('options', JSON.stringify(options));
+        pollData.options = options;
     }
     
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -542,9 +543,10 @@ document.getElementById('createPollForm').addEventListener('submit', function(e)
     fetch('/api/events/{{ event.event_code }}/polls/', {
         method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken,
         },
-        body: formData
+        body: JSON.stringify(pollData)
     })
     .then(response => response.json())
     .then(data => {

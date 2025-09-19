@@ -112,9 +112,11 @@
                                 <button class="btn btn-primary w-100" id="submit-word">Submit</button>
                                 
                                 <div class="mt-3" id="word-cloud-display">
-                                    {% for response in active_poll.word_responses.all %}
-                                    <span class="badge bg-secondary me-1 mb-1">{{ response.text }}</span>
-                                    {% endfor %}
+                                    {% if word_counts %}
+                                        {% for word_data in word_counts %}
+                                        <span class="badge bg-secondary me-1 mb-1">{{ word_data.word }} <span class="badge bg-primary rounded-pill ms-1">{{ word_data.count }}</span></span>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             </div>
                             {% endif %}
@@ -369,8 +371,8 @@ function updatePollResults(pollId, results) {
         // Word cloud poll
         const wordDisplay = activePoll.querySelector('#word-cloud-display');
         if (wordDisplay) {
-            wordDisplay.innerHTML = results.words.map(word => 
-                `<span class="badge bg-secondary me-1 mb-1">${word}</span>`
+            wordDisplay.innerHTML = results.words.map(wordData => 
+                `<span class="badge bg-secondary me-1 mb-1">${wordData.word} <span class="badge bg-primary rounded-pill ms-1">${wordData.count}</span></span>`
             ).join('');
         }
     }
