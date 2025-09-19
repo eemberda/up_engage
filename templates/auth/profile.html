@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - UpEngage{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h1>Profile</h1>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Account Information</h5>
+                    <p><strong>Username:</strong> {{ user.username }}</p>
+                    <p><strong>Email:</strong> {{ user.email|default:"Not provided" }}</p>
+                    <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Your Events</h5>
+                    <a href="{% url 'dashboard' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus me-1"></i>Create Event
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if hosted_events %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Code</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in hosted_events %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ event.title }}</strong>
+                                        {% if event.description %}
+                                        <br><small class="text-muted">{{ event.description|truncatewords:10 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ event.event_code }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if event.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if event.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>{{ event.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'host_event' event.event_code %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-cog me-1"></i>Manage
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-plus fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">You haven't created any events yet.</p>
+                        <a href="{% url 'dashboard' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Your First Event
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Stats</h5>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h3 class="text-primary">{{ hosted_events.count }}</h3>
+                                <small class="text-muted">Events</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success">{{ hosted_events|length }}</h3>
+                            <small class="text-muted">Total</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

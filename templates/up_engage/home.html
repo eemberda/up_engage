@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}UpEngage - Join Event{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-6">
+        <div class="text-center mb-5">
+            <h1 class="display-4 text-primary">
+                <i class="fas fa-comments me-3"></i>UpEngage
+            </h1>
+            <p class="lead">Join live Q&A sessions and interactive polls</p>
+        </div>
+
+        <!-- Join Event Form -->
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">Join an Event</h3>
+                
+                <form method="post" id="joinEventForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="event_code" class="form-label">Event Code</label>
+                        <input 
+                            type="text" 
+                            class="form-control form-control-lg text-center" 
+                            id="event_code" 
+                            name="event_code" 
+                            placeholder="Enter event code (e.g., DJ4R)"
+                            maxlength="10"
+                            style="letter-spacing: 2px; text-transform: uppercase;"
+                            required
+                        >
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-sign-in-alt me-2"></i>Join Event
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Host Section -->
+        <div class="text-center mt-4">
+            <p class="text-muted">Want to host your own event?</p>
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-plus me-2"></i>Create Event
+                </a>
+            {% else %}
+                <a href="{% url 'register' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-user-plus me-2"></i>Sign Up to Host
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<div class="row mt-5 py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">Features</h2>
+        <div class="row">
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon mb-3">
+                    <i class="fas fa-question-circle fa-3x text-primary"></i>
+                </div>
+                <h4>Live Q&A</h4>
+                <p class="text-muted">Submit questions and upvote the most important ones</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon mb-3">
+                    <i class="fas fa-poll fa-3x text-success"></i>
+                </div>
+                <h4>Interactive Polls</h4>
+                <p class="text-muted">Multiple choice, rating, and word cloud polls</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon mb-3">
+                    <i class="fas fa-bolt fa-3x text-warning"></i>
+                </div>
+                <h4>Real-time Updates</h4>
+                <p class="text-muted">See results and new questions as they happen</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('joinEventForm').addEventListener('submit', function(e) {
+    const eventCode = document.getElementById('event_code').value.trim().toUpperCase();
+    if (eventCode.length < 2) {
+        e.preventDefault();
+        alert('Please enter a valid event code.');
+        return;
+    }
+    document.getElementById('event_code').value = eventCode;
+});
+
+// Auto-uppercase event code as user types
+document.getElementById('event_code').addEventListener('input', function(e) {
+    e.target.value = e.target.value.toUpperCase();
+});
+</script>
+{% endblock %}

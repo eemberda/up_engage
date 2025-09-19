@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - UpEngage{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Dashboard</h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEventModal">
+                    <i class="fas fa-plus me-2"></i>Create Event
+                </button>
+            </div>
+
+            <!-- Events List -->
+            {% if events %}
+            <div class="row">
+                {% for event in events %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title">{{ event.title }}</h5>
+                                <span class="badge {% if event.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if event.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <span class="badge bg-primary fs-6">{{ event.event_code }}</span>
+                            </div>
+                            
+                            <p class="card-text text-muted">
+                                {{ event.description|truncatewords:15 }}
+                            </p>
+                            
+                            <div class="d-flex justify-content-between text-muted small mb-3">
+                                <span><i class="fas fa-question-circle me-1"></i>{{ event.question_count }} Questions</span>
+                                <span><i class="fas fa-poll me-1"></i>{{ event.poll_count }} Polls</span>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'host_event' event.event_code %}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-cog me-2"></i>Manage
+                                </a>
+                                <a href="{% url 'event' event.event_code %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-eye me-2"></i>View as Participant
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-footer text-muted small">
+                            Created {{ event.created_at|date:"M d, Y" }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-calendar-plus fa-4x text-muted mb-3"></i>
+                <h3 class="text-muted">No Events Yet</h3>
+                <p class="text-muted">Create your first event to get started!</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEventModal">
+                    <i class="fas fa-plus me-2"></i>Create Your First Event
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Event Modal -->
+<div class="modal fade" id="createEventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Event</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createEventForm">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Event Title *</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Event Code</label>
+                        <input type="text" class="form-control" id="event_code_display" readonly>
+                        <small class="form-text text-muted">A unique code will be generated automatically</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Create Event
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Create Event Form Handler
+document.getElementById('createEventForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('title', document.getElementById('title').value);
+    formData.append('description', document.getElementById('description').value);
+    
+    // Get CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('/api/events/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            // Success - reload page
+            window.location.reload();
+        } else {
+            // Handle errors
+            alert('Error creating event: ' + JSON.stringify(data));
+        }
+    })
+    .catch(error => {
+        alert('Error creating event: ' + error.message);
+    });
+});
+
+// Generate a preview event code when modal opens
+document.getElementById('createEventModal').addEventListener('show.bs.modal', function() {
+    // Generate random 4-character code for preview
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.getElementById('event_code_display').value = code + ' (example)';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,502 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - UpEngage{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Event Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h1 class="card-title">{{ event.title }}</h1>
+                    <p class="card-text">{{ event.description }}</p>
+                    <span class="badge bg-light text-primary fs-6">Event Code: {{ event.event_code }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Q&A Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Q&A</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#askQuestionModal">
+                        <i class="fas fa-plus me-1"></i>Ask Question
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="questions-container">
+                        {% for question in questions %}
+                        <div class="question-item border rounded p-3 mb-3" data-question-id="{{ question.id }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <p class="mb-2">{{ question.text }}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>{{ question.created_at|timesince }} ago
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary upvote-btn" data-question-id="{{ question.id }}">
+                                        <i class="fas fa-thumbs-up me-1"></i>
+                                        <span class="upvote-count">{{ question.upvote_count }}</span>
+                                    </button>
+                                    {% if question.is_answered %}
+                                    <div class="mt-1">
+                                        <span class="badge bg-success">Answered</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-comments fa-3x mb-3"></i>
+                            <p>No questions yet. Be the first to ask!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Poll Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-poll me-2"></i>Live Poll</h5>
+                </div>
+                <div class="card-body">
+                    <div id="poll-container">
+                        {% if active_poll %}
+                        <div class="active-poll" data-poll-id="{{ active_poll.id }}">
+                            <h6>{{ active_poll.question_text }}</h6>
+                            
+                            {% if active_poll.poll_type == 'multiple-choice' %}
+                            <div id="poll-options">
+                                {% for option in active_poll.options.all %}
+                                <div class="mb-2">
+                                    <button class="btn btn-outline-primary w-100 poll-option" 
+                                            data-option-id="{{ option.id }}">
+                                        {{ option.text }}
+                                        <span class="badge bg-primary ms-2 vote-count">{{ option.vote_count }}</span>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% elif active_poll.poll_type == 'rating' %}
+                            <div id="rating-poll">
+                                <p>Rate from 1 to 5:</p>
+                                <div class="d-flex gap-2 justify-content-center">
+                                    {% for i in "12345" %}
+                                    <button class="btn btn-outline-warning rating-btn" data-rating="{{ i }}">
+                                        {% for j in "12345" %}
+                                            {% if forloop.counter <= i|add:0 %}
+                                                <i class="fas fa-star"></i>
+                                            {% else %}
+                                                <i class="far fa-star"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% elif active_poll.poll_type == 'word-cloud' %}
+                            <div id="word-cloud-poll">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="word-input" 
+                                           placeholder="Enter a word or phrase..." maxlength="100">
+                                </div>
+                                <button class="btn btn-primary w-100" id="submit-word">Submit</button>
+                                
+                                <div class="mt-3" id="word-cloud-display">
+                                    {% for response in active_poll.word_responses.all %}
+                                    <span class="badge bg-secondary me-1 mb-1">{{ response.text }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-poll fa-3x mb-3"></i>
+                            <p>No active poll. Wait for the host to start a poll.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ask Question Modal -->
+<div class="modal fade" id="askQuestionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ask a Question</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="askQuestionForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="question-text" class="form-label">Your Question</label>
+                        <textarea class="form-control" id="question-text" rows="4" 
+                                  placeholder="What would you like to ask?" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Submit Question
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Connection Status -->
+<div id="connection-status" class="fixed-bottom mb-3 me-3" style="z-index: 1050;">
+    <div class="toast" role="alert" data-bs-autohide="false">
+        <div class="toast-body d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span id="status-text">Connecting to event...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// WebSocket connection
+const eventCode = '{{ event.event_code }}';
+const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+const wsPath = `${wsScheme}://${window.location.host}/ws/event/${eventCode}/`;
+let socket;
+
+// Connection status elements
+const connectionStatus = document.getElementById('connection-status');
+const statusToast = new bootstrap.Toast(connectionStatus.querySelector('.toast'));
+const statusText = document.getElementById('status-text');
+
+function showConnectionStatus(message, isError = false) {
+    statusText.textContent = message;
+    const toastElement = connectionStatus.querySelector('.toast');
+    toastElement.className = `toast ${isError ? 'bg-danger text-white' : 'bg-success text-white'}`;
+    statusToast.show();
+}
+
+function hideConnectionStatus() {
+    statusToast.hide();
+}
+
+// Initialize WebSocket connection
+function connectWebSocket() {
+    socket = new WebSocket(wsPath);
+    
+    socket.onopen = function(e) {
+        console.log('WebSocket connected');
+        showConnectionStatus('Connected to live updates');
+        setTimeout(hideConnectionStatus, 3000);
+    };
+    
+    socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleWebSocketMessage(data);
+    };
+    
+    socket.onclose = function(e) {
+        console.log('WebSocket closed');
+        showConnectionStatus('Connection lost. Attempting to reconnect...', true);
+        // Attempt to reconnect after 3 seconds
+        setTimeout(connectWebSocket, 3000);
+    };
+    
+    socket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+        showConnectionStatus('Connection error', true);
+    };
+}
+
+function handleWebSocketMessage(data) {
+    switch(data.type) {
+        case 'question_new':
+            addNewQuestion(data.question);
+            break;
+        case 'question_upvote_update':
+            updateQuestionUpvotes(data.question_id, data.upvote_count);
+            break;
+        case 'question_answered_update':
+            updateQuestionAnswered(data.question_id, data.is_answered);
+            break;
+        case 'poll_activated':
+            showActivePoll(data.poll);
+            break;
+        case 'poll_results_update':
+            updatePollResults(data.poll_id, data.results);
+            break;
+    }
+}
+
+function addNewQuestion(question) {
+    const questionsContainer = document.getElementById('questions-container');
+    
+    // Check if container is empty (showing "no questions" message)
+    const emptyMessage = questionsContainer.querySelector('.text-center.text-muted');
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+    
+    const questionHtml = `
+        <div class="question-item border rounded p-3 mb-3" data-question-id="${question.id}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <p class="mb-2">${question.text}</p>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>Just now
+                    </small>
+                </div>
+                <div class="text-end">
+                    <button class="btn btn-sm btn-outline-primary upvote-btn" data-question-id="${question.id}">
+                        <i class="fas fa-thumbs-up me-1"></i>
+                        <span class="upvote-count">${question.upvote_count}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    questionsContainer.insertAdjacentHTML('afterbegin', questionHtml);
+    
+    // Add event listener to new upvote button
+    const newUpvoteBtn = questionsContainer.querySelector(`[data-question-id="${question.id}"] .upvote-btn`);
+    newUpvoteBtn.addEventListener('click', handleUpvote);
+}
+
+function updateQuestionUpvotes(questionId, upvoteCount) {
+    const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
+    if (questionElement) {
+        const upvoteCountElement = questionElement.querySelector('.upvote-count');
+        upvoteCountElement.textContent = upvoteCount;
+    }
+}
+
+function updateQuestionAnswered(questionId, isAnswered) {
+    const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
+    if (questionElement) {
+        const answerBadge = questionElement.querySelector('.badge.bg-success');
+        if (isAnswered && !answerBadge) {
+            // Add answered badge
+            const buttonContainer = questionElement.querySelector('.text-end');
+            buttonContainer.insertAdjacentHTML('beforeend', '<div class="mt-1"><span class="badge bg-success">Answered</span></div>');
+        } else if (!isAnswered && answerBadge) {
+            // Remove answered badge
+            answerBadge.parentElement.remove();
+        }
+    }
+}
+
+function showActivePoll(poll) {
+    const pollContainer = document.getElementById('poll-container');
+    
+    let pollHtml = `<div class="active-poll" data-poll-id="${poll.id}">
+        <h6>${poll.question_text}</h6>`;
+    
+    if (poll.poll_type === 'multiple-choice') {
+        pollHtml += '<div id="poll-options">';
+        poll.options.forEach(option => {
+            pollHtml += `
+                <div class="mb-2">
+                    <button class="btn btn-outline-primary w-100 poll-option" data-option-id="${option.id}">
+                        ${option.text}
+                        <span class="badge bg-primary ms-2 vote-count">0</span>
+                    </button>
+                </div>`;
+        });
+        pollHtml += '</div>';
+    } else if (poll.poll_type === 'rating') {
+        pollHtml += `
+            <div id="rating-poll">
+                <p>Rate from 1 to 5:</p>
+                <div class="d-flex gap-2 justify-content-center">`;
+        for (let i = 1; i <= 5; i++) {
+            pollHtml += `<button class="btn btn-outline-warning rating-btn" data-rating="${i}">`;
+            for (let j = 1; j <= 5; j++) {
+                pollHtml += j <= i ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+            }
+            pollHtml += '</button>';
+        }
+        pollHtml += '</div></div>';
+    } else if (poll.poll_type === 'word-cloud') {
+        pollHtml += `
+            <div id="word-cloud-poll">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="word-input" 
+                           placeholder="Enter a word or phrase..." maxlength="100">
+                </div>
+                <button class="btn btn-primary w-100" id="submit-word">Submit</button>
+                <div class="mt-3" id="word-cloud-display"></div>
+            </div>`;
+    }
+    
+    pollHtml += '</div>';
+    pollContainer.innerHTML = pollHtml;
+    
+    // Add event listeners for new poll
+    attachPollEventListeners();
+}
+
+function updatePollResults(pollId, results) {
+    const activePoll = document.querySelector(`[data-poll-id="${pollId}"]`);
+    if (!activePoll) return;
+    
+    if (results.options) {
+        // Multiple choice poll
+        results.options.forEach(option => {
+            const optionElement = activePoll.querySelector(`[data-option-id="${option.id}"]`);
+            if (optionElement) {
+                const voteCount = optionElement.querySelector('.vote-count');
+                voteCount.textContent = option.vote_count;
+            }
+        });
+    } else if (results.words) {
+        // Word cloud poll
+        const wordDisplay = activePoll.querySelector('#word-cloud-display');
+        if (wordDisplay) {
+            wordDisplay.innerHTML = results.words.map(word => 
+                `<span class="badge bg-secondary me-1 mb-1">${word}</span>`
+            ).join('');
+        }
+    }
+}
+
+// Event listeners
+function handleUpvote(e) {
+    const questionId = e.currentTarget.dataset.questionId;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'question_upvote',
+            question_id: questionId
+        }));
+    }
+}
+
+function attachPollEventListeners() {
+    // Multiple choice options
+    document.querySelectorAll('.poll-option').forEach(button => {
+        button.addEventListener('click', function() {
+            const optionId = this.dataset.optionId;
+            const pollId = document.querySelector('.active-poll').dataset.pollId;
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'poll_vote',
+                    poll_id: pollId,
+                    vote_data: { option_id: optionId }
+                }));
+            }
+            
+            // Disable button after voting
+            this.disabled = true;
+            this.classList.remove('btn-outline-primary');
+            this.classList.add('btn-primary');
+        });
+    });
+    
+    // Rating buttons
+    document.querySelectorAll('.rating-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const rating = this.dataset.rating;
+            const pollId = document.querySelector('.active-poll').dataset.pollId;
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'poll_vote',
+                    poll_id: pollId,
+                    vote_data: { rating: parseInt(rating) }
+                }));
+            }
+            
+            // Disable all rating buttons after voting
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.remove('btn-outline-warning');
+                btn.classList.add('btn-secondary');
+            });
+            
+            // Highlight selected rating
+            this.classList.remove('btn-secondary');
+            this.classList.add('btn-warning');
+        });
+    });
+    
+    // Word cloud submission
+    const submitWordBtn = document.getElementById('submit-word');
+    const wordInput = document.getElementById('word-input');
+    
+    if (submitWordBtn && wordInput) {
+        submitWordBtn.addEventListener('click', function() {
+            const text = wordInput.value.trim();
+            if (!text) return;
+            
+            const pollId = document.querySelector('.active-poll').dataset.pollId;
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'poll_vote',
+                    poll_id: pollId,
+                    vote_data: { text: text }
+                }));
+            }
+            
+            wordInput.value = '';
+            submitWordBtn.disabled = true;
+            submitWordBtn.textContent = 'Submitted';
+        });
+        
+        wordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                submitWordBtn.click();
+            }
+        });
+    }
+}
+
+// Ask question form
+document.getElementById('askQuestionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const questionText = document.getElementById('question-text').value.trim();
+    if (!questionText) return;
+    
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'question_submit',
+            text: questionText
+        }));
+    }
+    
+    // Close modal and reset form
+    const modal = bootstrap.Modal.getInstance(document.getElementById('askQuestionModal'));
+    modal.hide();
+    this.reset();
+});
+
+// Initialize upvote buttons
+document.querySelectorAll('.upvote-btn').forEach(button => {
+    button.addEventListener('click', handleUpvote);
+});
+
+// Initialize poll event listeners
+attachPollEventListeners();
+
+// Connect WebSocket when page loads
+connectWebSocket();
+</script>
+{% endblock %}
