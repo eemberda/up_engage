@@ -61,6 +61,8 @@ class EventConsumer(AsyncWebsocketConsumer):
                 await self.handle_poll_activate(data)
             elif message_type == 'question_mark_answered':
                 await self.handle_question_mark_answered(data)
+            elif message_type == 'qa_toggle':
+                await self.handle_qa_toggle(data)
             
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
@@ -163,6 +165,22 @@ class EventConsumer(AsyncWebsocketConsumer):
                     }
                 )
     
+    async def handle_qa_toggle(self, data):
+        """Handle Q&A toggle (host only)"""
+        user = self.scope.get('user')
+        
+        if user and not isinstance(user, AnonymousUser):
+            qa_enabled = await self.toggle_qa(user)
+            if qa_enabled is not None:
+                # Broadcast Q&A status update
+                await self.channel_layer.group_send(
+                    self.event_group_name,
+                    {
+                        'type': 'qa_status_update',
+                        'qa_enabled': qa_enabled
+                    }
+                )
+    
     # WebSocket message handlers
     async def question_new(self, event):
         """Send new question to WebSocket"""
@@ -182,6 +200,10 @@ class EventConsumer(AsyncWebsocketConsumer):
     
     async def poll_results_update(self, event):
         """Send poll results update to WebSocket"""
+        await self.send(text_data=json.dumps(event))
+    
+    async def qa_status_update(self, event):
+        """Send Q&A status update to WebSocket"""
         await self.send(text_data=json.dumps(event))
     
     # Database operations
@@ -378,6 +400,16 @@ class EventConsumer(AsyncWebsocketConsumer):
             return None
     
     @database_sync_to_async
+    def toggle_qa(self, user):
+        try:
+            event = Event.objects.get(event_code=self.event_code, host=user)
+            event.qa_enabled = not event.qa_enabled
+            event.save()
+            return event.qa_enabled
+        except Event.DoesNotExist:
+            return None
+    
+    @database_sync_to_async
     def send_event_data(self):
         """Send initial event data when user connects"""
         try:
@@ -432,7 +464,8 @@ class EventConsumer(AsyncWebsocketConsumer):
                 'event': {
                     'code': event.event_code,
                     'title': event.title,
-                    'description': event.description
+                    'description': event.description,
+                    'qa_enabled': event.qa_enabled
                 },
                 'questions': questions,
                 'active_poll': active_poll

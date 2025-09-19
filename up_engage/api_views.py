@@ -57,6 +57,17 @@ class EventViewSet(viewsets.ModelViewSet):
         event.is_active = not event.is_active
         event.save()
         return Response({'is_active': event.is_active})
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def toggle_qa(self, request, event_code=None):
+        """Toggle Q&A enabled status"""
+        event = self.get_object()
+        if event.host != request.user:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        event.qa_enabled = not event.qa_enabled
+        event.save()
+        return Response({'qa_enabled': event.qa_enabled})
 
 
 class QuestionViewSet(viewsets.ModelViewSet):

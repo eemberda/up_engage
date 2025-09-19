@@ -22,6 +22,7 @@ class Event(models.Model):
     )
     host = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hosted_events')
     is_active = models.BooleanField(default=True)
+    qa_enabled = models.BooleanField(default=True, help_text="Whether Q&A is enabled for this event")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

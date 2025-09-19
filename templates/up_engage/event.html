@@ -19,6 +19,7 @@
 
     <div class="row">
         <!-- Q&A Section -->
+        {% if event.qa_enabled %}
         <div class="col-lg-6 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -61,9 +62,10 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Poll Section -->
-        <div class="col-lg-6 mb-4">
+        <div class="col-lg-{% if event.qa_enabled %}6{% else %}12{% endif %} mb-4">
             <div class="card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-poll me-2"></i>Live Poll</h5>
@@ -227,6 +229,7 @@ function connectWebSocket() {
 }
 
 function handleWebSocketMessage(data) {
+    console.log('Received WebSocket message:', data);
     switch(data.type) {
         case 'question_new':
             addNewQuestion(data.question);
@@ -241,7 +244,11 @@ function handleWebSocketMessage(data) {
             showActivePoll(data.poll);
             break;
         case 'poll_results_update':
+            console.log('Handling poll results update');
             updatePollResults(data.poll_id, data.results);
+            break;
+        case 'qa_status_update':
+            updateQAStatus(data.qa_enabled);
             break;
     }
 }
@@ -354,26 +361,24 @@ function showActivePoll(poll) {
     attachPollEventListeners();
 }
 
-function updatePollResults(pollId, results) {
-    const activePoll = document.querySelector(`[data-poll-id="${pollId}"]`);
-    if (!activePoll) return;
+function updateQAStatus(qaEnabled) {
+    const qaSection = document.querySelector('.col-lg-6.mb-4 .card');
+    const pollSection = document.querySelector('.col-lg-6.mb-4 .card').nextElementSibling;
     
-    if (results.options) {
-        // Multiple choice poll
-        results.options.forEach(option => {
-            const optionElement = activePoll.querySelector(`[data-option-id="${option.id}"]`);
-            if (optionElement) {
-                const voteCount = optionElement.querySelector('.vote-count');
-                voteCount.textContent = option.vote_count;
+    if (qaEnabled) {
+        // Show Q&A section
+        if (!qaSection) {
+            // Need to reload the page to show Q&A section
+            location.reload();
+        }
+    } else {
+        // Hide Q&A section
+        if (qaSection && qaSection.querySelector('h5 i.fa-question-circle')) {
+            // If Q&A section exists, hide it and expand poll section
+            qaSection.style.display = 'none';
+            if (pollSection) {
+                pollSection.className = pollSection.className.replace('col-lg-6', 'col-lg-12');
             }
-        });
-    } else if (results.words) {
-        // Word cloud poll
-        const wordDisplay = activePoll.querySelector('#word-cloud-display');
-        if (wordDisplay) {
-            wordDisplay.innerHTML = results.words.map(wordData => 
-                `<span class="badge bg-secondary me-1 mb-1">${wordData.word} <span class="badge bg-primary rounded-pill ms-1">${wordData.count}</span></span>`
-            ).join('');
         }
     }
 }
@@ -393,8 +398,10 @@ function attachPollEventListeners() {
     // Multiple choice options
     document.querySelectorAll('.poll-option').forEach(button => {
         button.addEventListener('click', function() {
+            console.log('Poll option clicked:', this.dataset.optionId);
             const optionId = this.dataset.optionId;
             const pollId = document.querySelector('.active-poll').dataset.pollId;
+            console.log('Sending vote for poll:', pollId, 'option:', optionId);
             
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({
@@ -402,6 +409,9 @@ function attachPollEventListeners() {
                     poll_id: pollId,
                     vote_data: { option_id: optionId }
                 }));
+                console.log('Vote message sent');
+            } else {
+                console.log('WebSocket not connected');
             }
             
             // Disable button after voting

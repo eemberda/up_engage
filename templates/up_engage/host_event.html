@@ -39,10 +39,19 @@
         <div class="col-lg-6 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Questions</h5>
-                    <span class="badge bg-primary">{{ questions.count }} total</span>
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Q&A</h5>
+                    <div>
+                        <span class="badge bg-{% if event.qa_enabled %}success{% else %}secondary{% endif %} me-2">
+                            {% if event.qa_enabled %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleQA()">
+                            <i class="fas fa-toggle-{% if event.qa_enabled %}on{% else %}off{% endif %} me-1"></i>
+                            {% if event.qa_enabled %}Disable{% else %}Enable{% endif %} Q&A
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
+                    {% if event.qa_enabled %}
                     <div id="questions-container">
                         {% for question in questions %}
                         <div class="question-item border rounded p-3 mb-3 {% if question.is_answered %}bg-light{% endif %}" 
@@ -79,6 +88,13 @@
                         </div>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-comments-slash fa-3x mb-3"></i>
+                        <p>Q&A is currently disabled for this event.</p>
+                        <small class="text-muted">Participants cannot submit questions while Q&A is disabled.</small>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -299,6 +315,9 @@ function handleWebSocketMessage(data) {
         case 'poll_results_update':
             updatePollResults(data.poll_id, data.results);
             break;
+        case 'qa_status_update':
+            updateQAStatus(data.qa_enabled);
+            break;
     }
 }
 
@@ -401,20 +420,31 @@ function updateActivePoll(poll) {
     }
 }
 
-function updatePollResults(pollId, results) {
-    const pollItem = document.querySelector(`[data-poll-id="${pollId}"]`);
-    if (!pollItem) return;
+function updateQAStatus(qaEnabled) {
+    const qaCard = document.querySelector('.card h5').closest('.card');
+    const qaHeader = qaCard.querySelector('.card-header');
+    const qaBody = qaCard.querySelector('.card-body');
     
-    if (results.options) {
-        // Update multiple choice results
-        results.options.forEach(option => {
-            const optionElements = pollItem.querySelectorAll('.small div');
-            optionElements.forEach(el => {
-                if (el.textContent.includes(option.text)) {
-                    el.innerHTML = `• ${option.text} <span class="badge bg-primary">${option.vote_count} votes</span>`;
-                }
-            });
-        });
+    // Update header
+    const badge = qaHeader.querySelector('.badge');
+    const toggleBtn = qaHeader.querySelector('.btn-outline-primary');
+    
+    if (qaEnabled) {
+        badge.className = 'badge bg-success';
+        badge.textContent = 'Enabled';
+        toggleBtn.innerHTML = '<i class="fas fa-toggle-on me-1"></i>Disable Q&A';
+        qaBody.innerHTML = '<div id="questions-container"><!-- Questions will be loaded --></div>';
+    } else {
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'Disabled';
+        toggleBtn.innerHTML = '<i class="fas fa-toggle-off me-1"></i>Enable Q&A';
+        qaBody.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-comments-slash fa-3x mb-3"></i>
+                <p>Q&A is currently disabled for this event.</p>
+                <small class="text-muted">Participants cannot submit questions while Q&A is disabled.</small>
+            </div>
+        `;
     }
 }
 
@@ -482,6 +512,14 @@ function toggleEventStatus() {
     .then(data => {
         location.reload(); // Simple reload for now
     });
+}
+
+function toggleQA() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'qa_toggle'
+        }));
+    }
 }
 
 // Poll creation form
