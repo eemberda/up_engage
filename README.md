@@ -1,6 +1,6 @@
 # Live Q&A and Polling Platform for Educators
 
-A Django web application that replicates the core functionality of Slido, allowing users to create events, manage live polls, and host Q&A sessions with real-time updates.
+A Django web application that allows users to create events, manage live polls, and host Q&A sessions with real-time updates.
 
 ## 🚀 Features
 
