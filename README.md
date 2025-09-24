@@ -1,3 +1,6 @@
+<img width="2922" height="1746" alt="image" src="https://github.com/user-attachments/assets/c9987e77-124d-46f4-95a5-6e5313f07643" /> 
+<img width="2914" height="1736" alt="image" src="https://github.com/user-attachments/assets/5ed68403-e21a-446b-a80d-6dd869d10ca0" />
+
 # Live Q&A and Polling Platform for Educators
 
 A Django web application that allows users to create events, manage live polls, and host Q&A sessions with real-time updates.
