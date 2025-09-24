@@ -44,8 +44,8 @@ A Django web application that allows users to create events, manage live polls, 
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
-   cd slido_clone
+   git clone https://github.com/eemberda/up_engage.git
+   cd up_engage
    ```
 
 2. **Create and activate virtual environment**:
@@ -131,13 +131,13 @@ The application will be available at `http://127.0.0.1:8000/`
 ## 🏗 Project Structure
 
 ```
-slido_clone/
-├── slidoclone/                 # Main Django project
+root_directory/
+├── up_engage_project/         # Main Django project
 │   ├── settings.py            # Django settings
 │   ├── urls.py                # Main URL configuration
 │   ├── asgi.py                # ASGI configuration for WebSockets
 │   └── wsgi.py                # WSGI configuration
-├── slido/                     # Main Django app
+├── up_enage/                  # Main Django app
 │   ├── models.py              # Database models
 │   ├── views.py               # Template views
 │   ├── api_views.py           # REST API views
@@ -152,7 +152,7 @@ slido_clone/
 ├── templates/                 # HTML templates
 │   ├── base.html              # Base template
 │   ├── auth/                  # Authentication templates
-│   └── slido/                 # App templates
+│   └── up_engage/                 # App templates
 ├── static/                    # Static files
 │   ├── css/                   # Custom CSS
 │   └── js/                    # Custom JavaScript
