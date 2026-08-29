@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Avg
 from .models import Event, Question, Poll
 
 
@@ -31,8 +31,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['events'] = Event.objects.filter(host=self.request.user).annotate(
-            question_count=Count('questions'),
-            poll_count=Count('polls')
+            question_count=Count('questions', distinct=True),
+            poll_count=Count('polls', distinct=True),
+            avg_rating=Avg('polls__rating_responses__rating'),
+            rating_count=Count('polls__rating_responses', distinct=True),
         ).order_by('-created_at')
         return context
 
@@ -56,13 +58,6 @@ class EventView(TemplateView):
         # Get active poll
         active_poll = Poll.objects.filter(event=event, is_active=True).first()
         context['active_poll'] = active_poll
-        
-        # If there's an active word cloud poll, provide aggregated word data
-        if active_poll and active_poll.poll_type == 'word-cloud':
-            from collections import Counter
-            words = list(active_poll.word_responses.values_list('text', flat=True))
-            word_counts = Counter(words)
-            context['word_counts'] = [{'word': word, 'count': count} for word, count in word_counts.items()]
         
         # Get all polls for this event
         context['polls'] = Poll.objects.filter(event=event).order_by('-created_at')

@@ -3,10 +3,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import ListCreateAPIView
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, F
-from django.db import IntegrityError
+import os
 from .models import (
     Event, Question, QuestionUpvote, Poll, PollOption, 
     Vote, WordCloudResponse, RatingResponse
@@ -154,14 +154,15 @@ class VoteViewSet(viewsets.ModelViewSet):
         if not self.request.session.session_key:
             self.request.session.create()
         
-        try:
-            serializer.save(author_session_id=self.request.session.session_key)
-        except IntegrityError:
-            # User already voted for this option
-            return Response(
-                {'error': 'You have already voted for this option'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        option = serializer.validated_data['poll_option']
+        if not option.poll.is_active:
+            raise PermissionDenied('This poll is not active.')
+        
+        session_key = self.request.session.session_key
+        if Vote.objects.filter(poll_option=option, author_session_id=session_key).exists():
+            raise ValidationError('You have already voted for this option.')
+        
+        serializer.save(author_session_id=session_key)
 
 
 class WordCloudResponseViewSet(viewsets.ModelViewSet):
@@ -175,6 +176,10 @@ class WordCloudResponseViewSet(viewsets.ModelViewSet):
         # Ensure session exists
         if not self.request.session.session_key:
             self.request.session.create()
+        
+        poll = serializer.validated_data['poll']
+        if not poll.is_active:
+            raise PermissionDenied('This poll is not active.')
         
         serializer.save(author_session_id=self.request.session.session_key)
 
@@ -191,14 +196,16 @@ class RatingResponseViewSet(viewsets.ModelViewSet):
         if not self.request.session.session_key:
             self.request.session.create()
         
-        try:
-            serializer.save(author_session_id=self.request.session.session_key)
-        except IntegrityError:
-            # User already rated this poll
-            return Response(
-                {'error': 'You have already rated this poll'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        poll = serializer.validated_data['poll']
+        if not poll.is_active:
+            raise PermissionDenied('This poll is not active.')
+        
+        # Re-rating by the same session updates their rating in place.
+        RatingResponse.objects.update_or_create(
+            poll=poll,
+            author_session_id=self.request.session.session_key,
+            defaults={'rating': serializer.validated_data['rating']}
+        )
 
 
 class EventQuestionsView(ListCreateAPIView):
@@ -219,6 +226,10 @@ class EventQuestionsView(ListCreateAPIView):
     def perform_create(self, serializer):
         event_code = self.kwargs['event_code']
         event = get_object_or_404(Event, event_code=event_code)
+        
+        # Reject questions when Q&A is disabled
+        if not event.qa_enabled:
+            raise PermissionDenied('Q&A is disabled for this event.')
         
         # Ensure session exists
         if not self.request.session.session_key:
@@ -274,8 +285,79 @@ class QuestionUpvoteView(APIView):
         )
         
         if created:
-            return Response({'upvoted': True, 'upvote_count': question.upvote_count})
+            return Response({'upvoted': True, 'upvote_count': question.get_upvote_count()})
         else:
             # Remove upvote
             upvote.delete()
-            return Response({'upvoted': False, 'upvote_count': question.upvote_count})
+            return Response({'upvoted': False, 'upvote_count': question.get_upvote_count()})
+
+
+class WordCloudImageView(APIView):
+    """Render word-cloud poll responses as a PNG using the word_cloud library.
+
+    GET /api/events/<event_code>/polls/<poll_id>/wordcloud/
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, event_code, poll_id):
+        poll = get_object_or_404(
+            Poll, id=poll_id, event__event_code=event_code.strip().upper())
+
+        from collections import Counter
+        frequencies = Counter(poll.word_responses.values_list('text', flat=True))
+        frequencies = {word: count for word, count in frequencies.items() if word}
+
+        from django.http import HttpResponse
+        response = HttpResponse(
+            _render_word_cloud(frequencies), content_type='image/png')
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
+
+
+def _render_word_cloud(frequencies):
+    """Return PNG bytes for the given word->count mapping."""
+    from io import BytesIO
+    from PIL import Image
+    from wordcloud import WordCloud
+
+    font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+    if not os.path.exists(font_path):
+        # Fall back to the library's bundled font (ASCII only).
+        font_path = None
+
+    if not frequencies:
+        return _placeholder_word_cloud_png(font_path, 'No words yet')
+
+    wordcloud = WordCloud(
+        font_path=font_path,
+        width=1000, height=500,
+        background_color='white',
+        colormap='viridis',
+        collocations=False,
+        random_state=42,
+        min_font_size=10,
+        prefer_horizontal=0.8,
+    )
+    wordcloud.generate_from_frequencies(frequencies)
+
+    buffer = BytesIO()
+    wordcloud.to_image().save(buffer, format='PNG')
+    return buffer.getvalue()
+
+
+def _placeholder_word_cloud_png(font_path, text):
+    """Return a small centered-message PNG when a poll has no responses yet."""
+    from io import BytesIO
+    from PIL import Image, ImageDraw, ImageFont
+
+    image = Image.new('RGB', (1000, 300), (248, 249, 250))
+    draw = ImageDraw.Draw(image)
+    if font_path and os.path.exists(font_path):
+        font = ImageFont.truetype(font_path, 44)
+    else:
+        font = ImageFont.load_default()
+    draw.text((200, 120), text, fill=(108, 117, 125), font=font)
+
+    buffer = BytesIO()
+    image.save(buffer, format='PNG')
+    return buffer.getvalue()

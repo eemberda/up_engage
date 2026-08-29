@@ -12,6 +12,8 @@ router.register(r'word-responses', api_views.WordCloudResponseViewSet)
 router.register(r'rating-responses', api_views.RatingResponseViewSet)
 
 urlpatterns = [
+    path('events/<str:event_code>/polls/<int:poll_id>/wordcloud/',
+         api_views.WordCloudImageView.as_view(), name='poll-wordcloud'),
     path('', include(router.urls)),
     path('events/<str:event_code>/questions/', api_views.EventQuestionsView.as_view(), name='event-questions'),
     path('events/<str:event_code>/polls/', api_views.EventPollsView.as_view(), name='event-polls'),

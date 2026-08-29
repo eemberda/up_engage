@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Host: {{ event.title }} - UpEngage{% endblock %}
+{% block title %}Host: {{ event.title }} - UpVote{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
@@ -36,11 +36,15 @@
 
     <div class="row">
         <!-- Q&A Management -->
-        <div class="col-lg-6 mb-4">
+        <div class="col-lg-6 mb-4" id="qa-panel-column">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Q&A</h5>
                     <div>
+                        <button class="btn btn-sm btn-outline-dark" id="qa-expand-btn"
+                                onclick="setPresentationMode('qa')" title="Expand Q&A to full width">
+                            <i class="fas fa-expand me-1"></i>Expand
+                        </button>
                         <span class="badge bg-{% if event.qa_enabled %}success{% else %}secondary{% endif %} me-2">
                             {% if event.qa_enabled %}Enabled{% else %}Disabled{% endif %}
                         </span>
@@ -100,13 +104,19 @@
         </div>
 
         <!-- Poll Management -->
-        <div class="col-lg-6 mb-4">
+        <div class="col-lg-6 mb-4" id="polls-panel-column">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-poll me-2"></i>Polls</h5>
-                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createPollModal">
-                        <i class="fas fa-plus me-1"></i>Create Poll
-                    </button>
+                    <div>
+                        <button class="btn btn-sm btn-outline-dark" id="polls-expand-btn"
+                                onclick="setPresentationMode('polls')" title="Expand Polls to full width">
+                            <i class="fas fa-expand me-1"></i>Expand
+                        </button>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createPollModal">
+                            <i class="fas fa-plus me-1"></i>Create Poll
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <!-- Active Poll -->
@@ -141,22 +151,27 @@
                                     {% if poll.poll_type == 'multiple-choice' %}
                                     <div class="mt-2">
                                         {% for option in poll.options.all %}
-                                        <div class="small">
+                                        <div class="small" data-option-id="{{ option.id }}">
                                             • {{ option.text }} 
-                                            <span class="badge bg-primary">{{ option.vote_count }} votes</span>
+                                            <span class="badge bg-primary poll-option-votes">{{ option.vote_count }} votes</span>
                                         </div>
                                         {% endfor %}
                                     </div>
                                     {% elif poll.poll_type == 'rating' %}
                                     <div class="mt-2 small">
                                         <i class="fas fa-star text-warning"></i> 
-                                        {{ poll.rating_responses.count }} ratings
+                                        <span class="poll-rating-count">{{ poll.rating_responses.count }} ratings</span>
                                     </div>
                                     {% elif poll.poll_type == 'word-cloud' %}
-                                    <div class="mt-2 small">
-                                        <i class="fas fa-cloud text-info"></i> 
-                                        {{ poll.word_responses.count }} responses
-                                    </div>
+                                        <div class="mt-2 small">
+                                            <i class="fas fa-cloud text-info"></i> 
+                                            <span class="poll-word-count">{{ poll.word_responses.count }} responses</span>
+                                        </div>
+                                        <div class="poll-word-list mt-2">
+                                            <img class="img-fluid rounded border"
+                                                 src="{% url 'poll-wordcloud' event.event_code poll.id %}"
+                                                 alt="Word cloud">
+                                        </div>
                                     {% endif %}
                                 </div>
                                 <div class="text-end">
@@ -252,10 +267,9 @@
 {% block extra_js %}
 <script>
 // WebSocket connection
-const eventCode = '{{ event.title|escapejs }}';
-const eventCodeActual = '{{ event.event_code }}';
+const eventCode = '{{ event.event_code|escapejs }}';
 const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-const wsPath = `${wsScheme}://${window.location.host}/ws/event/${eventCodeActual}/`;
+const wsPath = `${wsScheme}://${window.location.host}/ws/event/${eventCode}/`;
 let socket;
 
 // Connection status elements
@@ -272,6 +286,48 @@ function showConnectionStatus(message, isError = false) {
 
 function hideConnectionStatus() {
     statusToast.hide();
+}
+
+// Presentation mode: expand Q&A or Polls to full page width for the audience.
+// Clicking the same panel's toggle again restores the side-by-side layout.
+let presentationMode = null;
+
+function setPresentationMode(panel) {
+    const qaCol = document.getElementById('qa-panel-column');
+    const pollsCol = document.getElementById('polls-panel-column');
+    const qaExpandBtn = document.getElementById('qa-expand-btn');
+    const pollsExpandBtn = document.getElementById('polls-expand-btn');
+
+    presentationMode = presentationMode === panel ? null : panel;
+
+    if (presentationMode === 'qa') {
+        qaCol.classList.remove('col-lg-6');
+        qaCol.classList.add('col-lg-12');
+        pollsCol.style.display = 'none';
+        qaExpandBtn.innerHTML = '<i class="fas fa-compress me-1"></i>Shrink';
+        qaExpandBtn.title = 'Restore side-by-side layout';
+        pollsExpandBtn.style.display = 'none';
+    } else if (presentationMode === 'polls') {
+        pollsCol.classList.remove('col-lg-6');
+        pollsCol.classList.add('col-lg-12');
+        qaCol.style.display = 'none';
+        pollsExpandBtn.innerHTML = '<i class="fas fa-compress me-1"></i>Shrink';
+        pollsExpandBtn.title = 'Restore side-by-side layout';
+        qaExpandBtn.style.display = 'none';
+    } else {
+        qaCol.classList.add('col-lg-6');
+        qaCol.classList.remove('col-lg-12');
+        pollsCol.classList.add('col-lg-6');
+        pollsCol.classList.remove('col-lg-12');
+        qaCol.style.display = '';
+        pollsCol.style.display = '';
+        qaExpandBtn.innerHTML = '<i class="fas fa-expand me-1"></i>Expand';
+        qaExpandBtn.title = 'Expand Q&A to full width';
+        pollsExpandBtn.innerHTML = '<i class="fas fa-expand me-1"></i>Expand';
+        pollsExpandBtn.title = 'Expand Polls to full width';
+        qaExpandBtn.style.display = '';
+        pollsExpandBtn.style.display = '';
+    }
 }
 
 // Initialize WebSocket connection
@@ -417,6 +473,44 @@ function updateActivePoll(poll) {
         }
         const buttonContainer = activePollItem.querySelector('.text-end');
         buttonContainer.innerHTML = '<span class="badge bg-success">Active</span>';
+    }
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function(ch) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
+    });
+}
+
+function updatePollResults(pollId, results) {
+    const pollItem = document.querySelector('.poll-item[data-poll-id="' + pollId + '"]');
+    if (!pollItem || !results) return;
+    
+    if (results.options) {
+        // Multiple choice: update each option's vote count
+        results.options.forEach(function(option) {
+            const votes = pollItem.querySelector('[data-option-id="' + option.id + '"] .poll-option-votes');
+            if (votes) votes.textContent = option.vote_count + ' votes';
+        });
+        return;
+    }
+    
+    if (results.ratings) {
+        const ratingCount = pollItem.querySelector('.poll-rating-count');
+        if (ratingCount) ratingCount.textContent = results.ratings.length + ' ratings';
+        return;
+    }
+    
+    if (results.words) {
+        const wordCount = pollItem.querySelector('.poll-word-count');
+        if (wordCount) {
+            const total = results.words.reduce(function(sum, w) { return sum + w.count; }, 0);
+            wordCount.textContent = total + ' responses';
+        }
+        const wordList = pollItem.querySelector('.poll-word-list');
+        if (wordList) {
+            wordList.innerHTML = `<img class="img-fluid rounded border" src="/api/events/${encodeURIComponent(eventCode)}/polls/${pollId}/wordcloud/?t=${Date.now()}" alt="Word cloud">`;
+        }
     }
 }
 

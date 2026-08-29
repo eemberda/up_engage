@@ -36,7 +36,9 @@ class EventConsumer(AsyncWebsocketConsumer):
         await self.accept()
         
         # Send initial event data
-        await self.send_event_data()
+        data = await self.send_event_data()
+        if data:
+            await self.send(text_data=json.dumps(data))
     
     async def disconnect(self, close_code):
         # Leave event group
@@ -216,6 +218,10 @@ class EventConsumer(AsyncWebsocketConsumer):
         try:
             event = Event.objects.get(event_code=self.event_code, is_active=True)
             
+            # Reject questions when Q&A is disabled
+            if not event.qa_enabled:
+                return None
+            
             # Get or create session key
             session_key = self.scope.get('session', {}).get('session_key')
             if not session_key:
@@ -246,7 +252,7 @@ class EventConsumer(AsyncWebsocketConsumer):
             if not created:
                 upvote.delete()
             
-            return {'upvote_count': question.upvote_count}
+            return {'upvote_count': question.get_upvote_count()}
         except Question.DoesNotExist:
             return None
     

@@ -112,7 +112,7 @@ class VoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vote
         fields = ['id', 'poll_option', 'poll_option_text', 'author_session_id', 'created_at']
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'author_session_id']
 
 
 class WordCloudResponseSerializer(serializers.ModelSerializer):
@@ -121,7 +121,7 @@ class WordCloudResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = WordCloudResponse
         fields = ['id', 'poll', 'poll_question', 'text', 'author_session_id', 'created_at']
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'author_session_id']
 
 
 class RatingResponseSerializer(serializers.ModelSerializer):
@@ -130,7 +130,7 @@ class RatingResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = RatingResponse
         fields = ['id', 'poll', 'poll_question', 'rating', 'author_session_id', 'created_at']
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'author_session_id']
 
 
 class CreatePollSerializer(serializers.ModelSerializer):
@@ -138,7 +138,8 @@ class CreatePollSerializer(serializers.ModelSerializer):
     options = serializers.ListField(
         child=serializers.CharField(max_length=200),
         required=False,
-        allow_empty=True
+        allow_empty=True,
+        write_only=True
     )
     
     class Meta:
