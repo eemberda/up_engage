@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ event.title }} - UpEngage{% endblock %}
+{% block title %}{{ event.title }} - UpVote{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
@@ -113,12 +113,10 @@
                                 </div>
                                 <button class="btn btn-primary w-100" id="submit-word">Submit</button>
                                 
-                                <div class="mt-3" id="word-cloud-display">
-                                    {% if word_counts %}
-                                        {% for word_data in word_counts %}
-                                        <span class="badge bg-secondary me-1 mb-1">{{ word_data.word }} <span class="badge bg-primary rounded-pill ms-1">{{ word_data.count }}</span></span>
-                                        {% endfor %}
-                                    {% endif %}
+                                <div class="mt-3">
+                                    <img id="word-cloud-display" class="img-fluid rounded border"
+                                         src="{% url 'poll-wordcloud' event.event_code active_poll.id %}"
+                                         alt="Word cloud">
                                 </div>
                             </div>
                             {% endif %}
@@ -350,7 +348,11 @@ function showActivePoll(poll) {
                            placeholder="Enter a word or phrase..." maxlength="100">
                 </div>
                 <button class="btn btn-primary w-100" id="submit-word">Submit</button>
-                <div class="mt-3" id="word-cloud-display"></div>
+                <div class="mt-3">
+                    <img id="word-cloud-display" class="img-fluid rounded border"
+                         src="/api/events/${encodeURIComponent(eventCode)}/polls/${poll.id}/wordcloud/"
+                         alt="Word cloud">
+                </div>
             </div>`;
     }
     
@@ -359,6 +361,54 @@ function showActivePoll(poll) {
     
     // Add event listeners for new poll
     attachPollEventListeners();
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function(ch) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
+    });
+}
+
+function updatePollResults(pollId, results) {
+    if (!results) return;
+    
+    if (results.options) {
+        // Multiple choice: update vote counts in place
+        results.options.forEach(function(option) {
+            const button = document.querySelector('.poll-option[data-option-id="' + option.id + '"]');
+            if (!button) return;
+            const badge = button.querySelector('.vote-count');
+            if (badge) badge.textContent = option.vote_count;
+        });
+        return;
+    }
+    
+    if (results.ratings) {
+        // Rating: show running average
+        const ratingPoll = document.getElementById('rating-poll');
+        if (!ratingPoll) return;
+        const ratings = results.ratings;
+        const avg = ratings.length
+            ? (ratings.reduce(function(sum, value) { return sum + value; }, 0) / ratings.length).toFixed(1)
+            : '0';
+        let summary = ratingPoll.querySelector('.rating-summary');
+        if (!summary) {
+            summary = document.createElement('div');
+            summary.className = 'rating-summary alert alert-info mt-3';
+            ratingPoll.appendChild(summary);
+        }
+        summary.textContent = 'Average rating: ' + avg + ' (' + ratings.length + ' responses)';
+        return;
+    }
+    
+    if (results.words) {
+        // Word cloud: refresh the generated image so new entries appear instantly
+        const display = document.getElementById('word-cloud-display');
+        if (!display) return;
+        if (display.tagName === 'IMG') {
+            display.src = `/api/events/${encodeURIComponent(eventCode)}/polls/${pollId}/wordcloud/?t=${Date.now()}`;
+        }
+    }
 }
 
 function updateQAStatus(qaEnabled) {
@@ -492,6 +542,13 @@ document.getElementById('askQuestionForm').addEventListener('submit', function(e
             type: 'question_submit',
             text: questionText
         }));
+    } else {
+        // Fallback: submit over REST if the WebSocket is unavailable
+        fetch(`/api/events/${eventCode}/questions/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: questionText})
+        }).catch(err => console.error('Question submit failed:', err));
     }
     
     // Close modal and reset form

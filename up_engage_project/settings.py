@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-qq)q*$f)^se%nzq6t3ipvn35)s
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "192.168.8.75"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "192.168.8.75", "copewithtech.com","up.copewithtech.com"]
 
 
 # Application definition
@@ -99,21 +99,21 @@ DATABASES = {
 # Channels configuration
 # Using InMemoryChannelLayer for development (no Redis required)
 # For production, use RedisChannelLayer with Redis server
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    },
-}
+#CHANNEL_LAYERS = {
+#    "default": {
+#        "BACKEND": "channels.layers.InMemoryChannelLayer",
+#    },
+#}
 
 # Uncomment below and install Redis for production:
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels_redis.core.RedisChannelLayer",
-#         "CONFIG": {
-#             "hosts": [("127.0.0.1", 6379)],
-#         },
-#     },
-# }
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 # Override channel layers for testing
 import sys
@@ -145,6 +145,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "https://localhost:8002",
+    "https://up.copewithtech.com",
+    "https://copewithtech.com",
+    "https://copewithtech.com:8002"
 ]
 
 CORS_ALLOW_CREDENTIALS = True

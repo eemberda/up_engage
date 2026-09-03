@@ -144,7 +144,7 @@ class ViewsTest(TestCase):
         """Test home page loads"""
         response = self.client.get(reverse('home'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'SlidoClone')
+        self.assertContains(response, 'UpEngage')
 
     def test_login_view(self):
         """Test login functionality"""
