@@ -586,14 +586,15 @@ document.getElementById('createPollForm').addEventListener('submit', function(e)
         },
         body: JSON.stringify(pollData)
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.id) {
-            // Success - reload page
-            window.location.reload();
-        } else {
-            alert('Error creating poll: ' + JSON.stringify(data));
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => { throw new Error(JSON.stringify(data)); });
         }
+        return response.json();
+    })
+    .then(data => {
+        // Success - reload page
+        window.location.reload();
     })
     .catch(error => {
         alert('Error creating poll: ' + error.message);

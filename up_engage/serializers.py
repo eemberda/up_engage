@@ -143,7 +143,7 @@ class CreatePollSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Poll
-        fields = ['event', 'question_text', 'poll_type', 'options']
+        fields = ['id', 'event', 'question_text', 'poll_type', 'options']
     
     def create(self, validated_data):
         options_data = validated_data.pop('options', [])
