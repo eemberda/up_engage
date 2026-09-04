@@ -347,13 +347,11 @@ function connectWebSocket() {
     
     socket.onclose = function(e) {
         console.log('WebSocket closed');
-        showConnectionStatus('Connection lost. Attempting to reconnect...', true);
         setTimeout(connectWebSocket, 3000);
     };
     
     socket.onerror = function(e) {
         console.error('WebSocket error:', e);
-        showConnectionStatus('Connection error', true);
     };
 }
 
