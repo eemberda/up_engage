@@ -91,7 +91,7 @@ class Poll(models.Model):
 class PollOption(models.Model):
     """Model representing options for multiple-choice polls"""
     poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='options')
-    text = models.CharField(max_length=200)
+    text = models.CharField(max_length=512)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
