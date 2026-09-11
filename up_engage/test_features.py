@@ -333,6 +333,17 @@ class PollFlowTests(TestCase):
         poll = Poll.objects.get(question_text='Pick a color')
         self.assertEqual(poll.options.count(), 3)
 
+    def test_host_can_create_multiple_choice_poll_with_long_option(self):
+        option_text = 'A' * 512
+        response = self.host_api.post(
+            f'/api/events/{self.event.event_code}/polls/',
+            {'event': self.event.id, 'question_text': 'Pick an option',
+             'poll_type': 'multiple-choice', 'options': [option_text]},
+            format='json')
+        self.assertEqual(response.status_code, 201)
+        poll = Poll.objects.get(question_text='Pick an option')
+        self.assertEqual(poll.options.get().text, option_text)
+
     def test_non_host_cannot_create_poll(self):
         other = _create_user('other_poll')
         other_api = APIClient()

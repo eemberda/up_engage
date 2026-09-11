@@ -136,7 +136,7 @@ class RatingResponseSerializer(serializers.ModelSerializer):
 class CreatePollSerializer(serializers.ModelSerializer):
     """Serializer for creating polls with options"""
     options = serializers.ListField(
-        child=serializers.CharField(max_length=200),
+        child=serializers.CharField(max_length=512),
         required=False,
         allow_empty=True,
         write_only=True
